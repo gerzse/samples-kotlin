@@ -3,8 +3,11 @@ package net.corda.samples.example
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.node.services.queryBy
 import net.corda.core.utilities.getOrThrow
+import net.corda.samples.example.flows.CreateTicTacToeGameFlow
 import net.corda.samples.example.flows.ExampleFlow
+import net.corda.samples.example.flows.PlayTicTacToeGameFlow
 import net.corda.samples.example.states.IOUState
+import net.corda.samples.example.states.TicTacToeGame
 import net.corda.testing.core.singleIdentity
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkParameters
@@ -122,5 +125,29 @@ class IOUFlowTests {
                 assertEquals(recordedState.borrower, b.info.singleIdentity())
             }
         }
+    }
+
+    @Test
+    fun `Can play a Tic-Tac-Toe game`() {
+        a.startFlow(CreateTicTacToeGameFlow.Initiator(b.info.singleIdentity()))
+        network.runNetwork()
+
+        val board0 = a.services.vaultService.queryBy<TicTacToeGame>().states.single().state.data
+        assertEquals(",,|,,|,,", board0.board)
+        assertEquals("", board0.moves)
+
+        a.startFlow(PlayTicTacToeGameFlow.Initiator(board0.linearId.id, "X", 1, 1))
+        network.runNetwork()
+
+        val board1 = a.services.vaultService.queryBy<TicTacToeGame>().states.single().state.data
+        assertEquals(",,|,X,|,,", board1.board)
+        assertEquals("1,1,X|", board1.moves)
+
+        b.startFlow(PlayTicTacToeGameFlow.Initiator(board1.linearId.id, "O", 0, 0))
+        network.runNetwork()
+
+        val board2 = a.services.vaultService.queryBy<TicTacToeGame>().states.single().state.data
+        assertEquals("O,,|,X,|,,", board2.board)
+        assertEquals("1,1,X|0,0,O|", board2.moves)
     }
 }
