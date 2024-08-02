@@ -12,6 +12,7 @@ import net.corda.core.utilities.ProgressTracker
 import net.corda.core.utilities.ProgressTracker.Step
 import net.corda.core.utilities.loggerFor
 import net.corda.samples.example.contracts.TicTacToeContract
+import net.corda.samples.example.helpers.BoardAndMoves
 import net.corda.samples.example.states.TicTacToeGame
 import java.util.*
 
@@ -26,6 +27,7 @@ object PlayTicTacToeGameFlow {
         private val log = loggerFor<Initiator>()
 
         companion object {
+            object VALIDATING : Step("Validating parameters.")
             object GENERATING_TRANSACTION : Step("Generating transaction based on existing board.")
             object VERIFYING_TRANSACTION : Step("Verifying contract constraints.")
             object SIGNING_TRANSACTION : Step("Signing transaction with our private key.")
@@ -38,6 +40,7 @@ object PlayTicTacToeGameFlow {
             }
 
             fun tracker() = ProgressTracker(
+                VALIDATING,
                 GENERATING_TRANSACTION,
                 VERIFYING_TRANSACTION,
                 SIGNING_TRANSACTION,
@@ -51,6 +54,15 @@ object PlayTicTacToeGameFlow {
         @Suspendable
         override fun call(): SignedTransaction {
             val notary = serviceHub.networkMapCache.notaryIdentities.single()
+
+            progressTracker.currentStep = VALIDATING
+
+            if (symbol != "X" && symbol != "O") {
+                throw FlowException("The only accepted symbols are X and O.")
+            }
+            if (row < 0 || row > 2 || col < 0 || col > 2) {
+                throw FlowException("Cannot place a symbol outside the board.")
+            }
 
             progressTracker.currentStep = GENERATING_TRANSACTION
 
@@ -72,7 +84,19 @@ object PlayTicTacToeGameFlow {
             }
             log.info("Other player is $otherPlayer")
 
-            val newGameBoard = gameBoard.play(symbol, row, col)
+            val boardAndMoves = BoardAndMoves(gameBoard.board, gameBoard.moves)
+            try {
+                boardAndMoves.play(row, col, symbol)
+            } catch (e: IllegalArgumentException) {
+                throw FlowException(e)
+            }
+            val newGameBoard = TicTacToeGame(
+                gameBoard.playerX,
+                gameBoard.playerO,
+                boardAndMoves.serializeBoard(),
+                boardAndMoves.serializeMoves(),
+                gameBoard.linearId
+            )
             log.info("New game board is $newGameBoard")
 
             val txCommand =

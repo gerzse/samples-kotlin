@@ -36,16 +36,4 @@ data class TicTacToeGame(
     }
 
     override fun supportedSchemas(): Iterable<MappedSchema> = listOf(TicTacToeSchemaV1)
-
-    fun play(symbol: String, row: Int, col: Int): TicTacToeGame {
-        val boardMatrix = board.split("|").map { rowIt -> rowIt.split(",").map { it.trim() } }
-        val boardRow = boardMatrix[row]
-        val boardMutableRow = boardRow.toMutableList()
-        boardMutableRow[col] = symbol
-        val boardMutableMatrix = boardMatrix.toMutableList()
-        boardMutableMatrix[row] = boardMutableRow
-        val newBoard = boardMutableMatrix.map { it.joinToString(",") }.joinToString("|")
-        val newMoves = this.moves + "$row,$col,$symbol|"
-        return TicTacToeGame(this.playerX, this.playerO, newBoard, newMoves, this.linearId)
-    }
 }
